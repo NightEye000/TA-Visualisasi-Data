@@ -19,16 +19,9 @@ st.set_page_config(
 @st.cache_data
 def load_data():
     """Memuat dan memproses data dari file CSV."""
-    df = pd.read_csv('iphone_dataset_csv.csv')
+    df = pd.read_csv('./data/iphone_dataset_csv.csv')
     df["Tahun"] = pd.to_numeric(df["Tahun"], errors='coerce')
     df = df.dropna(subset=['Tahun']).sort_values("Tahun").reset_index(drop=True)
-
-    # Mengganti nama kolom agar lebih ramah di legenda visualisasi (PENTING untuk Chart 2)
-    df = df.rename(columns={
-        "Persentase penguasaan pasar IOS": "iOS",
-        "Persentase penguasaan pasar Android": "Android",
-        "Persentase penguasaan pasar lainnya": "Lainnya"
-    })
 
     # Perhitungan metrik tambahan untuk analisis
     df['% Pengguna AS dari Global (Aktual)'] = (df['Pengguna Iphone di USA'] / df['Pengguna Iphone di Dunia']) * 100
@@ -44,12 +37,12 @@ def load_data():
     df['Penetrasi Global (%)'] = (df['Jumlah Penjualan Iphone di Dunia'] / df['Pengguna Iphone di Dunia']) * 100
     df['Penetrasi AS (%)'] = (df['Jumlah Penjualan Iphone di USA'] / df['Pengguna Iphone di USA']) * 100
     
-    # Analisis market share (kolom 'Lainnya' sudah ada setelah rename)
-    # df['Total Market Share'] = df['iOS'] + df['Android'] # Tidak perlu karena sudah ada 'Lainnya'
-    # df['Market Share Lainnya'] = 100 - df['Total Market Share'] # Tidak perlu karena sudah ada 'Lainnya'
+    # Analisis market share
+    df['Total Market Share'] = df['Persentase penguasaan pasar IOS'] + df['Persentase penguasaan pasar Android']
+    df['Market Share Lainnya'] = 100 - df['Total Market Share']
     
     # ARPU estimation (Average Revenue Per User) - proxy calculation
-    # Asumsi harga rata-rata iPhone $700 (bisa disesuaikan)
+    # Asumsi harga rata-rata iPhone $600-800
     avg_iphone_price = 700  # USD
     df['Est. Revenue Global (Miliar USD)'] = (df['Jumlah Penjualan Iphone di Dunia'] * avg_iphone_price) / 1_000_000_000
     df['Est. Revenue AS (Miliar USD)'] = (df['Jumlah Penjualan Iphone di USA'] * avg_iphone_price) / 1_000_000_000
@@ -129,9 +122,9 @@ with st.expander("🔍 Temuan Analisis Data Awal"):
         
         if years_span > 0:
             user_cagr = calculate_cagr(first_data['Pengguna Iphone di Dunia'], 
-                                       latest_data['Pengguna Iphone di Dunia'], years_span)
+                                     latest_data['Pengguna Iphone di Dunia'], years_span)
             sales_cagr = calculate_cagr(first_data['Jumlah Penjualan Iphone di Dunia'], 
-                                        latest_data['Jumlah Penjualan Iphone di Dunia'], years_span)
+                                      latest_data['Jumlah Penjualan Iphone di Dunia'], years_span)
         else:
             user_cagr = sales_cagr = 0
             
@@ -139,7 +132,7 @@ with st.expander("🔍 Temuan Analisis Data Awal"):
         Tren Pertumbuhan ({tahun_dipilih[0]}-{tahun_dipilih[1]}):
         - Pengguna Global CAGR: {user_cagr:.1f}%
         - Penjualan Global CAGR: {sales_cagr:.1f}%
-        - Market Share iOS: {latest_data['iOS']:.1f}%
+        - Market Share iOS: {latest_data['Persentase penguasaan pasar IOS']:.1f}%
         """)
 
 # --- KPI DASHBOARD ---
@@ -165,7 +158,7 @@ if not df_filtered.empty:
     
     with kpi3:
         st.metric(
-            label="🇺🇸 Kontribusi Pengguna AS", # Label diperbaiki agar lebih jelas
+            label="🇺🇸 Market Share AS",
             value=f"{latest['% Pengguna AS dari Global (Aktual)']:.1f}%",
             delta=f"{latest['% Pengguna AS dari Global (Aktual)'] - first['% Pengguna AS dari Global (Aktual)']:.1f}pp"
         )
@@ -173,8 +166,8 @@ if not df_filtered.empty:
     with kpi4:
         st.metric(
             label="📊 iOS Market Share",
-            value=f"{latest['iOS']:.1f}%", # Menggunakan nama kolom yang sudah di-rename
-            delta=f"{latest['iOS'] - first['iOS']:.1f}pp"
+            value=f"{latest['Persentase penguasaan pasar IOS']:.1f}%",
+            delta=f"{latest['Persentase penguasaan pasar IOS'] - first['Persentase penguasaan pasar IOS']:.1f}pp"
         )
     
     with kpi5:
@@ -196,7 +189,7 @@ if analisis_mode == "Ringkasan Eksekutif":
     fig1.add_trace(go.Scatter(
         x=df_filtered['Tahun'],
         y=df_filtered['Pengguna Iphone di Dunia'] / 1_000_000,  # Convert to millions
-        name='Pengguna Global (Juta)', # Label diperbaiki
+        name='Pengguna Global (M)',
         mode='lines+markers',
         line=dict(color='#007AFF', width=3),
         yaxis='y1'
@@ -205,7 +198,7 @@ if analisis_mode == "Ringkasan Eksekutif":
     fig1.add_trace(go.Scatter(
         x=df_filtered['Tahun'],
         y=df_filtered['Jumlah Penjualan Iphone di Dunia'] / 1_000_000,  # Convert to millions
-        name='Penjualan Global (Juta)', # Label diperbaiki
+        name='Penjualan Global (M)',
         mode='lines+markers',
         line=dict(color='#FF6B35', width=3, dash='dot'),
         yaxis='y2'
@@ -225,27 +218,35 @@ if analisis_mode == "Ringkasan Eksekutif":
     
     st.plotly_chart(fig1, use_container_width=True)
     
-    # Chart 2: Market share evolution (menggunakan plotly.express.area untuk 100% stacked)
+    # Chart 2: Market share evolution
     st.subheader("🎯 Evolusi Pangsa Pasar OS Mobile")
-    st.markdown("Grafik area tumpuk 100% ini secara efektif menunjukkan bagaimana komposisi pangsa pasar OS telah berubah, menyoroti runtuhnya pangsa 'Lainnya'.")
-
-    df_market_share = df_filtered[['Tahun', 'iOS', 'Android', 'Lainnya']]
-    df_melted = df_market_share.melt(id_vars='Tahun', value_vars=['iOS', 'Android', 'Lainnya'], var_name='Sistem Operasi', value_name='Pangsa Pasar (%)')
-
-    fig2 = px.area(df_melted,
-        x='Tahun',
-        y='Pangsa Pasar (%)',
-        color='Sistem Operasi',
-        title="<b>Evolusi Pangsa Pasar Sistem Operasi Seluler</b>", # Judul diperbaiki
-        labels={'Pangsa Pasar (%)': 'Pangsa Pasar (%)'},
-        groupnorm='percent', # Ini kunci untuk membuat 100% stacked area chart
-        color_discrete_map={
-            'iOS': '#007AFF', # Apple Blue
-            'Android': '#A4C639', # Android Green
-            'Lainnya': '#A9A9A9' # Dark Gray
-        }
+    
+    fig2 = go.Figure()
+    fig2.add_trace(go.Scatter(
+        x=df_filtered['Tahun'],
+        y=df_filtered['Persentase penguasaan pasar IOS'],
+        name='iOS',
+        mode='lines+markers',
+        fill='tonexty',
+        line=dict(color='#007AFF')
+    ))
+    
+    fig2.add_trace(go.Scatter(
+        x=df_filtered['Tahun'],
+        y=df_filtered['Persentase penguasaan pasar Android'],
+        name='Android',
+        mode='lines+markers',
+        fill='tonexty',
+        line=dict(color='#A4C639')
+    ))
+    
+    fig2.update_layout(
+        title="Kompetisi iOS vs Android dalam Pangsa Pasar",
+        xaxis_title="Tahun",
+        yaxis_title="Pangsa Pasar (%)",
+        hovermode='x unified',
+        height=400
     )
-    fig2.update_layout(hovermode='x unified', height=400)
     
     # Konfigurasi sumbu x untuk menampilkan semua tahun
     fig2 = configure_xaxis_all_years(fig2, df_filtered['Tahun'])
@@ -288,8 +289,8 @@ elif analisis_mode == "Analisis Mendalam":
         st.plotly_chart(fig3, use_container_width=True)
     
     with col2:
-        # YoY Growth comparison (Penjualan dan Pengguna Global)
-        st.subheader("📈 Momentum Pertumbuhan YoY (Global)") # Judul diperbaiki
+        # YoY Growth comparison
+        st.subheader("📈 Momentum Pertumbuhan YoY")
         
         fig4 = go.Figure()
         fig4.add_trace(go.Scatter(
@@ -308,7 +309,7 @@ elif analisis_mode == "Analisis Mendalam":
         ))
         
         fig4.update_layout(
-            title="Volatilitas Pertumbuhan Tahunan Global", # Judul diperbaiki
+            title="Volatilitas Pertumbuhan Tahunan",
             xaxis_title="Tahun",
             yaxis_title="Pertumbuhan YoY (%)",
             hovermode='x unified',
@@ -391,11 +392,11 @@ else:  # Perbandingan Segmen
     for _, row in df_filtered.iterrows():
         comparison_data.append({
             'Tahun': int(row['Tahun']),
-            'Pengguna AS (Juta)': f"{row['Pengguna Iphone di USA']/1_000_000:.1f}",
-            'Pengguna Global (Miliar)': f"{row['Pengguna Iphone di Dunia']/1_000_000_000:.2f}",
-            'Share Pengguna AS (%)': f"{row['% Pengguna AS dari Global (Aktual)']:.1f}%",
-            'Penjualan AS (Juta)': f"{row['Jumlah Penjualan Iphone di USA']/1_000_000:.1f}",
-            'Penjualan Global (Juta)': f"{row['Jumlah Penjualan Iphone di Dunia']/1_000_000:.1f}",
+            'Pengguna AS (M)': f"{row['Pengguna Iphone di USA']/1_000_000:.1f}",
+            'Pengguna Global (B)': f"{row['Pengguna Iphone di Dunia']/1_000_000_000:.2f}",
+            'Share AS (%)': f"{row['% Pengguna AS dari Global (Aktual)']:.1f}%",
+            'Penjualan AS (M)': f"{row['Jumlah Penjualan Iphone di USA']/1_000_000:.1f}",
+            'Penjualan Global (M)': f"{row['Jumlah Penjualan Iphone di Dunia']/1_000_000:.1f}",
             'Share Penjualan AS (%)': f"{row['% Penjualan AS dari Global (Aktual)']:.1f}%"
         })
     
@@ -412,22 +413,22 @@ with insights_col1:
     st.info("""
     📊 Temuan Utama:
     
-    1. Diversifikasi Geografis Berhasil: Kontribusi AS terhadap total pengguna global menurun dari ~35% (2011) menjadi ~10% (2023). Ini menunjukkan keberhasilan Apple dalam memperluas pasar di luar AS.
+    1. Diversifikasi Geografis Berhasil: Kontribusi AS terhadap total pengguna global menurun dari ~35% (2011) menjadi ~10% (2023)
     
-    2. Pertumbuhan User Base Stabil: CAGR pengguna global ~25% menunjukkan adopsi yang konsisten dan basis pengguna yang terus berkembang.
+    2. Pertumbuhan User Base Stabil: CAGR pengguna global ~25% menunjukkan adopsi konsisten
     
-    3. Duopoli Mobile OS: iOS dan Android menguasai >99% pasar, mengeliminasi pemain lain, menunjukkan pasar yang sangat terkonsolidasi.
+    3. Duopoli Mobile OS: iOS dan Android menguasai >99% pasar, mengeliminasi pemain lain
     """)
 
 with insights_col2:
     st.warning("""
     ⚠ Area Perhatian:
     
-    1. Volatilitas Penjualan: Fluktuasi penjualan tahunan menunjukkan dependensi pada siklus produk dan mungkin kurangnya strategi untuk menjaga momentum penjualan di luar peluncuran model baru.
+    1. Volatilitas Penjualan: Fluktuasi penjualan tahunan menunjukkan dependensi pada siklus produk
     
-    2. Penetrasi Pasar: Rasio penjualan/pengguna menunjukkan pola upgrade yang tidak konsisten, mengindikasikan bahwa tidak semua pengguna iPhone lama beralih ke model baru setiap tahun.
+    2. Penetrasi Pasar: Rasio penjualan/pengguna menunjukkan pola upgrade yang tidak konsisten
     
-    3. Kompetisi Android: Market share Android tetap kuat di ~42-45%, menunjukkan bahwa Apple masih menghadapi persaingan ketat di pasar global.
+    3. Kompetisi Android: Market share Android tetap kuat di ~42-45%
     """)
 
 # Data export
