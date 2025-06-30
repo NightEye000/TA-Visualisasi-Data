@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 import numpy as np
+import os # Import modul os untuk manipulasi path
 
 # -----------------
 # KONFIGURASI HALAMAN
@@ -19,7 +20,17 @@ st.set_page_config(
 @st.cache_data
 def load_data():
     """Memuat dan memproses data dari file CSV."""
-    df = pd.read_csv('/path/to/your/ta-visualisasi-data/dashboard/iphone_dataset_csv.csv')
+    # Mendapatkan direktori tempat skrip ini berada
+    current_dir = os.path.dirname(__file__)
+    # Menggabungkan direktori saat ini dengan nama file CSV
+    file_path = os.path.join(current_dir, 'iphone_dataset_csv.csv')
+
+    # Memeriksa apakah file ada sebelum mencoba membacanya
+    if not os.path.exists(file_path):
+        st.error(f"Error: File 'iphone_dataset_csv.csv' tidak ditemukan di lokasi yang diharapkan: {file_path}")
+        st.stop() # Menghentikan eksekusi aplikasi jika file tidak ditemukan
+        
+    df = pd.read_csv(file_path)
     df["Tahun"] = pd.to_numeric(df["Tahun"], errors='coerce')
     df = df.dropna(subset=['Tahun']).sort_values("Tahun").reset_index(drop=True)
 
@@ -112,9 +123,9 @@ with st.expander("🔍 Temuan Analisis Data Awal"):
         
         if years_span > 0:
             user_cagr = calculate_cagr(first_data['Pengguna Iphone di Dunia'], 
-                                     latest_data['Pengguna Iphone di Dunia'], years_span)
+                                       latest_data['Pengguna Iphone di Dunia'], years_span)
             sales_cagr = calculate_cagr(first_data['Jumlah Penjualan Iphone di Dunia'], 
-                                      latest_data['Jumlah Penjualan Iphone di Dunia'], years_span)
+                                        latest_data['Jumlah Penjualan Iphone di Dunia'], years_span)
         else:
             user_cagr = sales_cagr = 0
             
