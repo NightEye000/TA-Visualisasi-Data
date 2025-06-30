@@ -19,7 +19,7 @@ st.set_page_config(
 @st.cache_data
 def load_data():
     """Memuat dan memproses data dari file CSV."""
-    df = pd.read_csv('../data/iphone_dataset_csv.csv')
+    df = pd.read_csv('/path/to/your/ta-visualisasi-data/dashboard/iphone_dataset_csv.csv')
     df["Tahun"] = pd.to_numeric(df["Tahun"], errors='coerce')
     df = df.dropna(subset=['Tahun']).sort_values("Tahun").reset_index(drop=True)
 
