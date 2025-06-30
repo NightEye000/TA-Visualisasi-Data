@@ -3,7 +3,6 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 import numpy as np
-import os # Import modul os untuk manipulasi path
 
 # -----------------
 # KONFIGURASI HALAMAN
@@ -20,17 +19,7 @@ st.set_page_config(
 @st.cache_data
 def load_data():
     """Memuat dan memproses data dari file CSV."""
-    # Mendapatkan direktori tempat skrip ini berada
-    current_dir = os.path.dirname(__file__)
-    # Menggabungkan direktori saat ini dengan nama file CSV
-    file_path = os.path.join(current_dir, 'iphone_dataset_csv.csv')
-
-    # Memeriksa apakah file ada sebelum mencoba membacanya
-    if not os.path.exists(file_path):
-        st.error(f"Error: File 'iphone_dataset_csv.csv' tidak ditemukan di lokasi yang diharapkan: {file_path}")
-        st.stop() # Menghentikan eksekusi aplikasi jika file tidak ditemukan
-        
-    df = pd.read_csv(file_path)
+    df = pd.read_csv('iphone_dataset_csv.csv')
     df["Tahun"] = pd.to_numeric(df["Tahun"], errors='coerce')
     df = df.dropna(subset=['Tahun']).sort_values("Tahun").reset_index(drop=True)
 
@@ -78,6 +67,16 @@ def calculate_cagr(start_value, end_value, num_periods):
         return 0
     return ((end_value / start_value) ** (1 / num_periods) - 1) * 100
 
+def configure_xaxis_all_years(fig, years_data):
+    """Konfigurasi sumbu x untuk menampilkan semua tahun."""
+    fig.update_xaxes(
+        tickmode='array',
+        tickvals=years_data,
+        ticktext=[str(int(year)) for year in years_data],
+        tickangle=0
+    )
+    return fig
+
 # -----------------
 # MAIN APP
 # -----------------
@@ -104,14 +103,14 @@ df_filtered = df[(df['Tahun'] >= tahun_dipilih[0]) & (df['Tahun'] <= tahun_dipil
 
 # --- HEADER ---
 st.title("📱 iPhone Market Analytics Dashboard")
-st.markdown(f"**Periode Analisis:** {tahun_dipilih[0]} - {tahun_dipilih[1]} | **Mode:** {analisis_mode}")
+st.markdown(f"Periode Analisis: {tahun_dipilih[0]} - {tahun_dipilih[1]} | Mode: {analisis_mode}")
 
 # --- VALIDASI DATA & INSIGHTS AWAL ---
 with st.expander("🔍 Temuan Analisis Data Awal"):
     col1, col2 = st.columns(2)
     with col1:
         st.info("""
-        **Inkonsistensi Data Terdeteksi:**
+        Inkonsistensi Data Terdeteksi:
         - Kolom 'Persentase Pengguna iPhone' tampak tidak konsisten dengan perhitungan aktual
         - Contoh 2023: Tercatat 58.33% vs perhitungan aktual ~10.5%
         - Dashboard menggunakan perhitungan ulang untuk akurasi
@@ -123,17 +122,17 @@ with st.expander("🔍 Temuan Analisis Data Awal"):
         
         if years_span > 0:
             user_cagr = calculate_cagr(first_data['Pengguna Iphone di Dunia'], 
-                                       latest_data['Pengguna Iphone di Dunia'], years_span)
+                                     latest_data['Pengguna Iphone di Dunia'], years_span)
             sales_cagr = calculate_cagr(first_data['Jumlah Penjualan Iphone di Dunia'], 
-                                        latest_data['Jumlah Penjualan Iphone di Dunia'], years_span)
+                                      latest_data['Jumlah Penjualan Iphone di Dunia'], years_span)
         else:
             user_cagr = sales_cagr = 0
             
         st.success(f"""
-        **Tren Pertumbuhan ({tahun_dipilih[0]}-{tahun_dipilih[1]}):**
-        - Pengguna Global CAGR: **{user_cagr:.1f}%**
-        - Penjualan Global CAGR: **{sales_cagr:.1f}%**
-        - Market Share iOS: **{latest_data['Persentase penguasaan pasar IOS']:.1f}%**
+        Tren Pertumbuhan ({tahun_dipilih[0]}-{tahun_dipilih[1]}):
+        - Pengguna Global CAGR: {user_cagr:.1f}%
+        - Penjualan Global CAGR: {sales_cagr:.1f}%
+        - Market Share iOS: {latest_data['Persentase penguasaan pasar IOS']:.1f}%
         """)
 
 # --- KPI DASHBOARD ---
@@ -213,6 +212,10 @@ if analisis_mode == "Ringkasan Eksekutif":
         hovermode='x unified',
         height=400
     )
+    
+    # Konfigurasi sumbu x untuk menampilkan semua tahun
+    fig1 = configure_xaxis_all_years(fig1, df_filtered['Tahun'])
+    
     st.plotly_chart(fig1, use_container_width=True)
     
     # Chart 2: Market share evolution
@@ -244,6 +247,10 @@ if analisis_mode == "Ringkasan Eksekutif":
         hovermode='x unified',
         height=400
     )
+    
+    # Konfigurasi sumbu x untuk menampilkan semua tahun
+    fig2 = configure_xaxis_all_years(fig2, df_filtered['Tahun'])
+    
     st.plotly_chart(fig2, use_container_width=True)
 
 elif analisis_mode == "Analisis Mendalam":
@@ -275,6 +282,10 @@ elif analisis_mode == "Analisis Mendalam":
             barmode='group',
             height=350
         )
+        
+        # Konfigurasi sumbu x untuk menampilkan semua tahun
+        fig3 = configure_xaxis_all_years(fig3, df_filtered['Tahun'])
+        
         st.plotly_chart(fig3, use_container_width=True)
     
     with col2:
@@ -304,6 +315,10 @@ elif analisis_mode == "Analisis Mendalam":
             hovermode='x unified',
             height=350
         )
+        
+        # Konfigurasi sumbu x untuk menampilkan semua tahun
+        fig4 = configure_xaxis_all_years(fig4, df_filtered['Tahun'])
+        
         st.plotly_chart(fig4, use_container_width=True)
     
     # Revenue estimation
@@ -330,6 +345,10 @@ elif analisis_mode == "Analisis Mendalam":
         barmode='group',
         height=400
     )
+    
+    # Konfigurasi sumbu x untuk menampilkan semua tahun
+    fig5 = configure_xaxis_all_years(fig5, df_filtered['Tahun'])
+    
     st.plotly_chart(fig5, use_container_width=True)
 
 else:  # Perbandingan Segmen
@@ -360,6 +379,10 @@ else:  # Perbandingan Segmen
         hovermode='x unified',
         height=400
     )
+    
+    # Konfigurasi sumbu x untuk menampilkan semua tahun
+    fig6 = configure_xaxis_all_years(fig6, df_filtered['Tahun'])
+    
     st.plotly_chart(fig6, use_container_width=True)
     
     # Comparative analysis table
@@ -388,35 +411,35 @@ insights_col1, insights_col2 = st.columns(2)
 
 with insights_col1:
     st.info("""
-    **📊 Temuan Utama:**
+    📊 Temuan Utama:
     
-    1. **Diversifikasi Geografis Berhasil**: Kontribusi AS terhadap total pengguna global menurun dari ~35% (2011) menjadi ~10% (2023)
+    1. Diversifikasi Geografis Berhasil: Kontribusi AS terhadap total pengguna global menurun dari ~35% (2011) menjadi ~10% (2023)
     
-    2. **Pertumbuhan User Base Stabil**: CAGR pengguna global ~25% menunjukkan adopsi konsisten
+    2. Pertumbuhan User Base Stabil: CAGR pengguna global ~25% menunjukkan adopsi konsisten
     
-    3. **Duopoli Mobile OS**: iOS dan Android menguasai >99% pasar, mengeliminasi pemain lain
+    3. Duopoli Mobile OS: iOS dan Android menguasai >99% pasar, mengeliminasi pemain lain
     """)
 
 with insights_col2:
     st.warning("""
-    **⚠️ Area Perhatian:**
+    ⚠ Area Perhatian:
     
-    1. **Volatilitas Penjualan**: Fluktuasi penjualan tahunan menunjukkan dependensi pada siklus produk
+    1. Volatilitas Penjualan: Fluktuasi penjualan tahunan menunjukkan dependensi pada siklus produk
     
-    2. **Penetrasi Pasar**: Rasio penjualan/pengguna menunjukkan pola upgrade yang tidak konsisten
+    2. Penetrasi Pasar: Rasio penjualan/pengguna menunjukkan pola upgrade yang tidak konsisten
     
-    3. **Kompetisi Android**: Market share Android tetap kuat di ~42-45%
+    3. Kompetisi Android: Market share Android tetap kuat di ~42-45%
     """)
 
 # Data export
 with st.expander("📥 Ekspor Data untuk Analisis Lanjutan"):
-    st.markdown("**Dataset yang telah diproses dengan metrik tambahan:**")
+    st.markdown("Dataset yang telah diproses dengan metrik tambahan:")
     st.dataframe(df_filtered)
     
     # Download button untuk CSV
     csv = df_filtered.to_csv(index=False)
     st.download_button(
-        label="⬇️ Download Data CSV",
+        label="⬇ Download Data CSV",
         data=csv,
         file_name=f'iphone_analysis_{tahun_dipilih[0]}_{tahun_dipilih[1]}.csv',
         mime='text/csv'
